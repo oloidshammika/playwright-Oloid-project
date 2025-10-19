@@ -20,8 +20,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: lts/ # Ensures a stable Node.js version
-      - name: Install dependencies
+          # ✅ FIX: Changed from 'lts/' to the correct alias 'lts/*'
+          node-version: lts/* - name: Install dependencies
         run: npm ci
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
@@ -29,9 +29,9 @@ jobs:
       - name: Run Playwright tests for Oloid_test folder
         # Tests run, generating ortoni-data-history.sqlite
         run: npx playwright test Oloid_test
-        continue-on-error: true # Essential to allow report generation steps to run after failure
+        continue-on-error: true 
 
-      # Upload 1: The Ortoni Report Artifact (contains only the .sqlite data if tests failed)
+      # Upload 1: The Ortoni Report Artifact (contains the .sqlite data)
       - name: Upload Ortoni Report Artifact
         uses: actions/upload-artifact@v4
         if: ${{ always() }}
@@ -41,7 +41,7 @@ jobs:
           if-no-files-found: warn
           compression-level: 6
 
-      # Upload 2: The default Playwright HTML report (requires ["html"] in config)
+      # Upload 2: The default Playwright HTML report
       - name: Archive Playwright Test Results
         uses: actions/upload-artifact@v4
         if: ${{ always() }}
@@ -52,7 +52,6 @@ jobs:
   deploy-report:
     needs: test # Ensures deployment waits for the tests to finish
     runs-on: ubuntu-latest
-    # This environment setup is key to displaying the final URL in the summary
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -60,7 +59,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
+      
       # FIX: Install Ortoni CLI to be able to generate the HTML report
       - name: Install Ortoni CLI
         run: npm install ortoni-report-cli
@@ -69,16 +68,16 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      # Download the report artifact (which currently only contains the .sqlite data)
+      # Download the report artifact
       - name: Download Ortoni Report Artifact
         uses: actions/download-artifact@v4
         with:
           name: ortoni-report-artifact
-          path: ortoni-report/
+          path: ortoni-report/ 
 
       # CRITICAL FIX: Force HTML Report Generation from the .sqlite data
       - name: Generate HTML Report from SQLite Data
-        # The Ortoni CLI reads ortoni-data-history.sqlite and creates index.html in the same directory
+        # This command reads ortoni-data-history.sqlite and creates index.html in the same directory
         run: npx ortoni-report show-report --dir ./ortoni-report/ --file index.html
         working-directory: ${{ github.workspace }}
 
