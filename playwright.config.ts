@@ -1,11 +1,11 @@
 import { defineConfig, devices } from "@playwright/test";
 import { OrtoniReportConfig } from "ortoni-report";
 
-// This configuration constant is correctly defined as an object literal
 const reportConfig: OrtoniReportConfig = {
   open: process.env.CI ? "never" : "always",
   folderPath: "ortoni-report",
-  filename: "index.html",
+  // ✅ FIX: Set filename to the observed correct output name
+  filename: "ortoni-report.html",
   title: "Oloid Test Run Report",
   showProject: false,
   projectName: "Ortoni-Report",
@@ -33,27 +33,22 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   globalTimeout: 60000,
 
-  /* Reporter to use. */
   reporter: [
     ["list", { output: "list-report.txt" }],
-    // Correct format to pass config to Ortoni reporter
     ["ortoni-report", reportConfig],
-    // Added to ensure playwright-report/ is generated
     ["html", { open: "never" }],
   ],
 
-  /* Shared settings for all the projects below. */
   use: {
     actionTimeout: 30000,
     navigationTimeout: 60000,
-    headless: process.env.CI ? true : true,
+    headless: process.env.CI ? true : false,
     baseURL: process.env.BASE_URL,
     screenshot: "only-on-failure",
     video: "retain-on-failure",
     trace: "on-first-retry",
   },
 
-  /* Configure projects for major browsers */
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
     { name: "firefox", use: { ...devices["Desktop Firefox"] } },

@@ -26,8 +26,6 @@ jobs:
         run: npx playwright install --with-deps
 
       - name: Run Playwright tests for Oloid_test folder
-        # The test job is failing, which is why the HTML isn't generated.
-        # This step continues to generate the .sqlite file.
         run: npx playwright test Oloid_test
         continue-on-error: true
 
@@ -59,7 +57,6 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Ortoni CLI
-        # Installs the main package which contains the CLI executable
         run: npm install ortoni-report
 
       - name: Setup Pages
@@ -71,13 +68,11 @@ jobs:
           name: ortoni-report-artifact
           path: ortoni-report/
 
-      # ✅ FINAL FIX: Generate HTML Report from SQLite Data
+      # ✅ FINAL FIX: Uses the cleanest command structure from the root directory.
       - name: Generate HTML Report from SQLite Data
-        # 1. Removed the non-existent '--data-file' option.
-        # 2. Changed 'working-directory' to the report folder.
-        # 3. Changed '--file' to the observed correct output name: ortoni-report.html
-        run: npx ortoni-report show-report --file ortoni-report.html --port 3000
-        working-directory: ./ortoni-report
+        # Command runs from repository root, avoiding directory confusion.
+        run: npx ortoni-report show-report --dir ./ortoni-report --file ortoni-report.html --port 3000
+        working-directory: ${{ github.workspace }}
 
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3
