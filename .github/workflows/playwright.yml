@@ -56,25 +56,27 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Install Ortoni CLI from the correct package name
       - name: Install Ortoni CLI
-        # This installs ortoni-report, which includes the CLI executable
         run: npm install ortoni-report
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
+      # Download Ortoni Report Artifact to the root 'ortoni-report/' folder
       - name: Download Ortoni Report Artifact
         uses: actions/download-artifact@v4
         with:
           name: ortoni-report-artifact
           path: ortoni-report/
 
-      # ✅ FINAL FIX: Change working directory and simplify the CLI command
+      # ✅ FINAL FIX: Generate HTML Report from SQLite Data
       - name: Generate HTML Report from SQLite Data
-        # Run the command from the directory containing the .sqlite file.
-        # This allows the CLI to find the ortoni-data-history.sqlite file automatically.
-        run: npx ortoni-report show-report --file index.html --port 3000
-        working-directory: ./ortoni-report
+        # We run the command from the repository root (${{ github.workspace }})
+        # and explicitly point to the database file using the correct path.
+        # --dir is set to the output folder.
+        run: npx ortoni-report show-report --dir ./ortoni-report --file index.html --data-file ./ortoni-report/ortoni-data-history.sqlite
+        working-directory: ${{ github.workspace }}
 
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3
