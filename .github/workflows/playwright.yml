@@ -26,6 +26,7 @@ jobs:
         run: npx playwright install --with-deps
 
       - name: Run Playwright tests for Oloid_test folder
+        # The test is failing (as shown in image_91c923.png), but report generation continues
         run: npx playwright test Oloid_test
         continue-on-error: true
 
@@ -34,7 +35,7 @@ jobs:
         if: ${{ always() }}
         with:
           name: ortoni-report-artifact
-          path: ortoni-report/
+          path: ortoni-report/ # Uploads the 'ortoni-report' folder contents
           if-no-files-found: warn
           compression-level: 6
 
@@ -53,8 +54,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Install Ortoni CLI
         run: npm install ortoni-report
@@ -62,15 +62,16 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
+      # ✅ FIX: Download artifact contents into the root folder ('.') to prevent double nesting.
+      # The contents (including the ortoni-report folder) will be placed in the current directory.
       - name: Download Ortoni Report Artifact
         uses: actions/download-artifact@v4
         with:
           name: ortoni-report-artifact
-          path: ortoni-report/
+          path: .
 
-      # ✅ FINAL FIX: Uses the cleanest command structure from the root directory.
+      # ✅ Command runs from root, correctly pointing to the existing 'ortoni-report' folder.
       - name: Generate HTML Report from SQLite Data
-        # Command runs from repository root, avoiding directory confusion.
         run: npx ortoni-report show-report --dir ./ortoni-report --file ortoni-report.html --port 3000
         working-directory: ${{ github.workspace }}
 
