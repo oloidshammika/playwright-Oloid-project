@@ -20,8 +20,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          # ✅ FIX: Changed from 'lts/' to the correct alias 'lts/*'
-          node-version: lts/* - name: Install dependencies
+          # ✅ FIX: Correct Node version alias
+          node-version: lts/*
+      # ✅ FIX: This step must be a new element in the 'steps' array
+      - name: Install dependencies
         run: npm ci
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
@@ -29,7 +31,7 @@ jobs:
       - name: Run Playwright tests for Oloid_test folder
         # Tests run, generating ortoni-data-history.sqlite
         run: npx playwright test Oloid_test
-        continue-on-error: true 
+        continue-on-error: true
 
       # Upload 1: The Ortoni Report Artifact (contains the .sqlite data)
       - name: Upload Ortoni Report Artifact
@@ -59,7 +61,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      
+
       # FIX: Install Ortoni CLI to be able to generate the HTML report
       - name: Install Ortoni CLI
         run: npm install ortoni-report-cli
@@ -73,7 +75,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ortoni-report-artifact
-          path: ortoni-report/ 
+          path: ortoni-report/
 
       # CRITICAL FIX: Force HTML Report Generation from the .sqlite data
       - name: Generate HTML Report from SQLite Data

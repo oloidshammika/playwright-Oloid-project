@@ -46,7 +46,7 @@ export default defineConfig({
   use: {
     actionTimeout: 30000,
     navigationTimeout: 60000,
-    headless: process.env.CI ? true : false,
+    headless: process.env.CI ? true : true,
     baseURL: process.env.BASE_URL,
     screenshot: "only-on-failure",
     video: "retain-on-failure",
