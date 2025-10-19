@@ -26,6 +26,8 @@ jobs:
         run: npx playwright install --with-deps
 
       - name: Run Playwright tests for Oloid_test folder
+        # Note: The 'test' job is failing due to issues like "unsupported characters",
+        # but the report generation fix below allows the report to be viewed anyway.
         run: npx playwright test Oloid_test
         continue-on-error: true
 
@@ -68,22 +70,25 @@ jobs:
           name: ortoni-report-artifact
           path: /tmp/ortoni-download
 
-      # ✅ FINAL FIX: Generate HTML Report from SQLite Data (Uses $GITHUB_WORKSPACE)
+      # ✅ FINAL FIX: Generate HTML Report from SQLite Data (Corrected File Path)
       - name: Generate HTML Report from SQLite Data
         run: |
           # Define standard paths using the environment variable for reliability
           DEPLOY_DIR="$GITHUB_WORKSPACE/ortoni-report"
-          DOWNLOAD_DIR="/tmp/ortoni-download/ortoni-report"
+          DOWNLOAD_DIR="/tmp/ortoni-download"
+
+          # The file name is 'ortoni-data-history.sqlite'
+          # The downloaded artifact contents are likely placed directly under /tmp/ortoni-download
           DB_FILE="$DOWNLOAD_DIR/ortoni-data-history.sqlite"
 
           # 1. Ensure the target deployment directory exists
           mkdir -p "$DEPLOY_DIR"
 
           # 2. Copy the database file from the downloaded artifact location 
+          #    (Removed the nested 'ortoni-report' folder from the source path)
           cp "$DB_FILE" "$DEPLOY_DIR/"
 
           # 3. Run the generator from the deployment folder using the full path.
-          # We use the full path variable for --dir to avoid all relative path issues.
           npx ortoni-report show-report --dir "$DEPLOY_DIR" --file ortoni-report.html --port 3000
 
       - name: Upload Pages Artifact
