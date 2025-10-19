@@ -4,14 +4,13 @@ on:
     branches: [main, master]
   pull_request:
     branches: [main, master]
-  # Allows you to trigger the workflow manually from the GitHub Actions UI
   workflow_dispatch:
 
-# Set permissions for GitHub Pages deployment
+# CRITICAL: Permissions must be set for GitHub Pages deployment
 permissions:
   contents: read
-  pages: write # Required to publish the report via actions/deploy-pages
-  id-token: write # Required for OIDC authentication with pages deployment
+  pages: write
+  id-token: write
 
 jobs:
   test:
@@ -27,36 +26,30 @@ jobs:
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
 
-      # Step to run tests only in the Oloid_test folder
       - name: Run Playwright tests for Oloid_test folder
-        # The Ortoni Report files will be generated into 'ortoni-report/'
         run: npx playwright test Oloid_test
-        # 'continue-on-error' ensures the report upload runs even if tests fail
         continue-on-error: true
 
-      # Upload 1: The Ortoni Report. This artifact will be used by the 'deploy-report' job.
+      # Upload 1: The Ortoni Report Artifact
       - name: Upload Ortoni Report Artifact
         uses: actions/upload-artifact@v4
         if: ${{ always() }}
         with:
           name: ortoni-report-artifact
-          # CRITICAL: Path must match your playwright.config.ts outputDir/folderPath
           path: ortoni-report/
           if-no-files-found: warn
           compression-level: 6
 
-      # Upload 2: The default Playwright HTML report (optional, for direct download)
+      # Upload 2: The default Playwright HTML report (fixed to resolve warning)
       - name: Archive Playwright Test Results
         uses: actions/upload-artifact@v4
         if: ${{ always() }}
         with:
           name: playwright-test-results
-          # FIX: Supplies the mandatory 'path' input
           path: playwright-report/
 
-  # Job to deploy the Ortoni Report to GitHub Pages for a clickable link
   deploy-report:
-    needs: test # Ensure this job runs ONLY after the 'test' job is complete
+    needs: test
     runs-on: ubuntu-latest
     # This environment setup is key to displaying the final URL in the summary
     environment:
@@ -67,26 +60,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Setup the GitHub Pages deployment
+      # THIS IS THE STEP THAT FAILED: It requires Pages to be enabled first.
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      # Download the report artifact uploaded in the 'test' job
       - name: Download Ortoni Report Artifact
         uses: actions/download-artifact@v4
         with:
           name: ortoni-report-artifact
-          # Download to the directory that will be deployed
           path: ortoni-report/
 
-      # Upload the downloaded report content to the GitHub Pages staging area
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # This must be the folder containing the 'index.html' file
           path: ortoni-report/
 
-      # Deploy the report to the live GitHub Pages URL
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

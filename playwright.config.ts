@@ -1,18 +1,16 @@
 import { defineConfig, devices } from "@playwright/test";
 import { OrtoniReportConfig } from "ortoni-report";
-// We don't need 'import reporter from "ortoni-report";' or 'import * as os from "os";'
-// The 'os' module usage is standard, but you can hardcode the string if you prefer.
 
-// Using your custom configuration from the readme.
+// This configuration constant is correctly defined as an object literal
 const reportConfig: OrtoniReportConfig = {
   open: process.env.CI ? "never" : "always",
-  folderPath: "ortoni-report", // Reverting to 'ortoni-report' to match your GitHub Actions YAML
+  folderPath: "ortoni-report",
   filename: "index.html",
   title: "Oloid Test Run Report",
   showProject: false,
   projectName: "Ortoni-Report",
   testType: "e2e",
-  authorName: "Shammika Dahanayaka", // Hardcoding to avoid 'os' import complexity in CI
+  authorName: "Shammika Dahanayaka",
   base64Image: false,
   stdIO: false,
   preferredTheme: "light",
@@ -22,13 +20,10 @@ const reportConfig: OrtoniReportConfig = {
     description: "Playwright test report",
     testCycle: "1",
     release: "1.0.0",
-    platform: "Windows", // Hardcoding to avoid 'os' import complexity in CI
+    platform: "Windows",
   },
 };
 
-/**
- * See https://playwright.dev/docs/test-configuration.
- */
 export default defineConfig({
   testDir: "./tests",
   timeout: 5 * 60 * 1000,
@@ -41,8 +36,10 @@ export default defineConfig({
   /* Reporter to use. */
   reporter: [
     ["list", { output: "list-report.txt" }],
-    // ✅ FINAL FIX: Uses the correct Playwright reporter array format
+    // Correct format to pass config to Ortoni reporter
     ["ortoni-report", reportConfig],
+    // Added to ensure playwright-report/ is generated
+    ["html", { open: "never" }],
   ],
 
   /* Shared settings for all the projects below. */
