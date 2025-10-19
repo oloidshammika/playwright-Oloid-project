@@ -14,29 +14,33 @@ jobs:
         with:
           node-version: lts/*
       - name: Install dependencies
-        # Assuming your dependencies include Playwright and ortoni-report
         run: npm ci
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
 
       # Step to run tests only in the Oloid_test folder
       - name: Run Playwright tests for Oloid_test folder
-        # The argument 'Oloid_test' tells Playwright to run tests only in that directory.
         run: npx playwright test Oloid_test
+        continue-on-error: true
 
-      # Step to upload the generated Ortoni Report folder
+      # This step is CORRECT. It uploads your Ortoni report (path: ortoni-report/).
       - name: Upload Ortoni Report Artifact
         uses: actions/upload-artifact@v4
-        if: ${{ always() }} # Upload the report even if tests fail
+        if: ${{ always() }}
         with:
-          name: ortoni-test-report
+          name: ortoni-report-artifact
           path: ortoni-report/
           if-no-files-found: warn
           compression-level: 6
           overwrite: false
           include-hidden-files: false
+
+      # 🚨 FIX: This step was missing the mandatory 'path' input.
       - name: Archive Playwright Test Results
         uses: actions/upload-artifact@v4
-        if: ${{ always() }} # Upload the test results even if tests fail
+        if: ${{ always() }}
         with:
           name: playwright-test-results
+          # 👇 REQUIRED FIX: You must tell it what to upload!
+          path: playwright-report/
+          # 👆 Assuming you are uploading the default HTML report

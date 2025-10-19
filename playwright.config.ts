@@ -48,7 +48,15 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   globalTimeout: 60000,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: [["list"], ["ortoni-report", { outputDir: "ortoni-report" }]],
+  reporter: [
+    ["list", { output: "list-report.txt" }],
+    [
+      "ortoni-report",
+      {
+        outputDir: "ortoni-report",
+      },
+    ],
+  ],
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     actionTimeout: 30000, // 30 seconds for actions (up from default 10s)
