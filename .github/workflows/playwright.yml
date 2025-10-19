@@ -6,11 +6,10 @@ on:
     branches: [main, master]
   workflow_dispatch:
 
-# CRITICAL: Permissions must be set for GitHub Pages deployment
 permissions:
   contents: read
-  pages: write # Allows the deployment to GitHub Pages
-  id-token: write # Required for secure deployment authentication
+  pages: write
+  id-token: write
 
 jobs:
   test:
@@ -30,7 +29,6 @@ jobs:
         run: npx playwright test Oloid_test
         continue-on-error: true
 
-      # Upload 1: The Ortoni Report Artifact (contains the .sqlite data)
       - name: Upload Ortoni Report Artifact
         uses: actions/upload-artifact@v4
         if: ${{ always() }}
@@ -40,7 +38,6 @@ jobs:
           if-no-files-found: warn
           compression-level: 6
 
-      # Upload 2: The default Playwright HTML report
       - name: Archive Playwright Test Results
         uses: actions/upload-artifact@v4
         if: ${{ always() }}
@@ -59,9 +56,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ✅ FIX: Changed package name from 'ortoni-report-cli' to 'ortoni-report'
-      # The main package includes the CLI tool used in the next step
       - name: Install Ortoni CLI
+        # This installs ortoni-report, which includes the CLI executable
         run: npm install ortoni-report
 
       - name: Setup Pages
@@ -73,11 +69,12 @@ jobs:
           name: ortoni-report-artifact
           path: ortoni-report/
 
-      # CRITICAL FIX: Force HTML Report Generation from the .sqlite data
+      # ✅ FINAL FIX: Change working directory and simplify the CLI command
       - name: Generate HTML Report from SQLite Data
-        # This command uses the CLI executable (which is now correctly installed)
-        run: npx ortoni-report show-report --dir ./ortoni-report/ --file index.html
-        working-directory: ${{ github.workspace }}
+        # Run the command from the directory containing the .sqlite file.
+        # This allows the CLI to find the ortoni-data-history.sqlite file automatically.
+        run: npx ortoni-report show-report --file index.html --port 3000
+        working-directory: ./ortoni-report
 
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3
