@@ -26,7 +26,6 @@ jobs:
         run: npx playwright install --with-deps
 
       - name: Run Playwright tests for Oloid_test folder
-        # The test is failing (as shown in image_91c923.png), but report generation continues
         run: npx playwright test Oloid_test
         continue-on-error: true
 
@@ -62,23 +61,29 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      # ✅ FIX: Download artifact contents into the root folder ('.') to prevent double nesting.
-      # The contents (including the ortoni-report folder) will be placed in the current directory.
+      # ✅ FIX: Download artifact contents into a temporary location to avoid nesting.
       - name: Download Ortoni Report Artifact
         uses: actions/download-artifact@v4
         with:
           name: ortoni-report-artifact
-          path: .
+          path: /tmp/ortoni-download
 
-      # ✅ Command runs from root, correctly pointing to the existing 'ortoni-report' folder.
+      # ✅ FINAL FIX: Generate HTML Report from SQLite Data using explicit copy/run.
       - name: Generate HTML Report from SQLite Data
-        run: npx ortoni-report show-report --dir ./ortoni-report --file ortoni-report.html --port 3000
-        working-directory: ${{ github.workspace }}
+        run: |
+          # 1. Ensure the target deployment directory exists
+          mkdir -p ./ortoni-report
+          # 2. Copy the database file from the downloaded artifact location 
+          #    (/tmp/ortoni-download/ortoni-report/ is the structure of the downloaded zip)
+          cp /tmp/ortoni-download/ortoni-report/ortoni-data-history.sqlite ./ortoni-report/
+          # 3. Run the generator from the deployment folder, letting it find the copied file.
+          npx ortoni-report show-report --file ortoni-report.html --port 3000
+        working-directory: ./ortoni-report # Run command from the target folder
 
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ortoni-report/
+          path: ortoni-report/ # This folder now contains the generated ortoni-report.html
 
       - name: Deploy to GitHub Pages
         id: deployment
