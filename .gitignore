@@ -1,7 +1,10 @@
-
-# Playwright
-node_modules/
+# Playwright Output
 /test-results/
 /playwright-report/
+/ortoni-report/
+/report-db/
 /blob-report/
-/playwright/.cache/
+*.png
+
+# Node dependencies
+/node_modules
