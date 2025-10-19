@@ -30,9 +30,11 @@ jobs:
         if: ${{ always() }} # Upload the report even if tests fail
         with:
           name: ortoni-test-report
-          # The path must match the folderPath specified in playwright.config.ts
           path: ortoni-report/
-          retention-days: 30
+          if-no-files-found: warn
+          compression-level: 6
+          overwrite: false
+          include-hidden-files: false
       - name: Archive Playwright Test Results
         uses: actions/upload-artifact@v4
         if: ${{ always() }} # Upload the test results even if tests fail
