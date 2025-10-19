@@ -1,44 +1,40 @@
-name: Playwright Tests
-
+name: Playwright Tests - Oloid Folder with Ortoni Report
 on:
   push:
-    branches: [main]
+    branches: [main, master]
   pull_request:
-    branches: [main]
-
+    branches: [main, master]
 jobs:
   test:
-    timeout-minutes: 15
+    timeout-minutes: 60
     runs-on: ubuntu-latest
-
     steps:
-      # 1. Get code
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      # 2. Setup Node
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 20
-
-      # 3. Install dependencies
+          node-version: lts/*
       - name: Install dependencies
+        # Assuming your dependencies include Playwright and ortoni-report
         run: npm ci
-
-      # 4. Install Playwright Browsers
-      - name: Install Playwright browsers
+      - name: Install Playwright Browsers
         run: npx playwright install --with-deps
 
-      # 5. Run Tests
-      - name: Run Playwright tests
-        run: npx playwright test
+      # Step to run tests only in the Oloid_test folder
+      - name: Run Playwright tests for Oloid_test folder
+        # The argument 'Oloid_test' tells Playwright to run tests only in that directory.
+        run: npx playwright test Oloid_test
 
-      # 6. Upload Artifacts (for debugging)
-      - name: Upload Playwright Report (on failure/always)
-        if: always()
+      # Step to upload the generated Ortoni Report folder
+      - name: Upload Ortoni Report Artifact
         uses: actions/upload-artifact@v4
+        if: ${{ always() }} # Upload the report even if tests fail
         with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 5
+          name: ortoni-test-report
+          # The path must match the folderPath specified in playwright.config.ts
+          path: ortoni-report/
+          retention-days: 30
+      - name: Archive Playwright Test Results
+        uses: actions/upload-artifact@v4
+        if: ${{ always() }} # Upload the test results even if tests fail
+        with:
+          name: playwright-test-results

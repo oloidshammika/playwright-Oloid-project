@@ -2,11 +2,11 @@ import { defineConfig, devices } from "@playwright/test";
 import { OrtoniReportConfig } from "ortoni-report";
 
 const reportConfig: OrtoniReportConfig = {
-  open: process.env.CI ? "never" : "on-failure",
-  folderPath: "report-db",
+  open: process.env.CI ? "never" : "always",
+  folderPath: "ortoni-report",
   filename: "index.html",
   //logo: "logo.{png, jpg}",
-  title: "Ortoni Test Report",
+  title: "Oloid Test Run Report",
   showProject: !true,
   projectName: "Ortoni-Report",
   testType: "e2e",
