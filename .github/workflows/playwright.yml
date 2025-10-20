@@ -36,11 +36,6 @@ jobs:
         run: npx playwright test Oloid_test
         continue-on-error: true
 
-      - name: Verify generated Ortoni report folder
-        run: |
-          echo "Listing ortoni-report contents before upload:"
-          ls -R ortoni-report || echo "No ortoni-report directory found!"
-
       - name: Upload Ortoni Report Artifact
         uses: actions/upload-artifact@v4
         if: ${{ always() }}
@@ -50,7 +45,7 @@ jobs:
           if-no-files-found: error
           compression-level: 6
 
-      - name: Archive Playwright test results
+      - name: Upload Playwright Report
         uses: actions/upload-artifact@v4
         if: ${{ always() }}
         with:
@@ -98,7 +93,7 @@ jobs:
             exit 1
           fi
 
-          # Copy database and attachments
+          # Copy database and data folder
           cp "$DB_FILE" "$DEPLOY_DIR/"
           if [ -d "$DATA_FOLDER" ]; then
             cp -r "$DATA_FOLDER" "$DEPLOY_DIR/"
@@ -107,24 +102,20 @@ jobs:
 
           cd "$DEPLOY_DIR"
 
-          # Generate Ortoni HTML report (correct syntax)
+          # ✅ Generate Ortoni HTML report as index.html (Option 1)
           echo "⚙️ Running Ortoni report generator..."
           npx ortoni-report show-report ./ortoni-data-history.sqlite \
             --dir "." \
-            --file ortoni-report.html \
+            --file index.html \
             --type playwright \
             --title "Playwright Oloid Test Report" \
             --port 3000 || echo "⚠️ Ortoni CLI failed or no data found."
 
-          # Fallback if report not generated
-          if [ ! -f "ortoni-report.html" ]; then
-            echo "<html><body><h2>No report generated.</h2></body></html>" > ortoni-report.html
+          # Fallback if report not created
+          if [ ! -f "index.html" ]; then
+            echo "<html><body><h2>No report generated.</h2></body></html>" > index.html
             echo "⚠️ Created fallback empty report."
           fi
-
-          # Create redirect for GitHub Pages
-          echo '<meta http-equiv="refresh" content="0; url=ortoni-report.html" />' > index.html
-          echo "✅ Redirect index.html created."
 
           echo "📂 Final files in deployment directory:"
           ls -l
