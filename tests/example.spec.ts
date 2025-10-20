@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import { test, expect, Page, Locator } from "@playwright/test";
 
 // --- Utility Functions for Dynamic Data and Robust Waits (Refactored) ---
@@ -116,6 +118,9 @@ test("Full Happy Path: Create Client, App, Coverage, Price Plan, and Generate Pa
 
   // Date for forms (A future date for reliability)
   const effectiveDate = "2026-01-01";
+
+  // ensure test-results folder exists for downloads/screenshots
+  fs.mkdirSync("test-results", { recursive: true });
 
   try {
     // --- 2. Login Section ---
@@ -445,26 +450,13 @@ test("Full Happy Path: Create Client, App, Coverage, Price Plan, and Generate Pa
     );
 
     // Select Priority
-
-    //await page.locator('.css-t3ipsp-control > .css-hlgwow > .css-19bb58m').click();
     await page
       .getByRole("cell", { name: "Select or Enter Proportion" })
       .locator("svg")
       .click();
     await page.getByRole("option", { name: "100" }).click();
 
-    // await waitForElementAndClick(
-    //   page,
-    //   'role=button[name="Save Mapping"]',
-    //   "Save Mapping button"
-    // );
-
     await page.waitForTimeout(5000);
-
-    //await page.locator("#react-select-5-input").press("Tab");
-
-    //await page.locator("#react-select-5-input").press("Enter");
-
     await page.getByRole("button", { name: "Save Mapping" }).press("Enter");
 
     await page.waitForTimeout(1000);
@@ -485,10 +477,6 @@ test("Full Happy Path: Create Client, App, Coverage, Price Plan, and Generate Pa
 
     await page.waitForTimeout(1000); // Short wait before interacting
 
-    // await page
-    //   .locator(".css-t3ipsp-control > .css-hlgwow > .css-19bb58m")
-    //   .click();
-
     await page.waitForTimeout(500);
 
     await page
@@ -498,36 +486,9 @@ test("Full Happy Path: Create Client, App, Coverage, Price Plan, and Generate Pa
       .click();
     await page.getByRole("option", { name: "Transaction Rental" }).click();
 
-    // // Wait for the price plan dropdown
-    // await expect(page.locator("#price-plan-drpdwn")).toBeVisible({
-    //   timeout: 15000,
-    // });
-
-    // // FIX: Replaced the selector targeting the inner path with a more robust locator
-    // // that targets the interactive control element of the dropdown container.
-    // const pricePlanControlLocator = page
-    //   .locator("#price-plan-drpdwn")
-    //   .locator("div")
-    //   .first();
-
-    // await waitForElementAndClick(
-    //   page,
-    //   pricePlanControlLocator, // Use the new, more robust locator
-    //   "Price Plan dropdown control" // Updated description for clarity
-    // );
-
     // Fill Price and Effective Date
-
     await page.getByRole("textbox").nth(1).click();
     await page.getByRole("textbox").nth(1).fill("0.25");
-
-    // await waitForElementAndFill(
-    //   page,
-    //   'role=textbox[name="Effective Date *"]',
-    //   effectiveDate,
-    //   "Price Plan Effective Date field"
-    // );
-    // await page.keyboard.press("Escape");
 
     await page.getByRole("textbox").nth(2).click();
     await page
@@ -561,37 +522,9 @@ test("Full Happy Path: Create Client, App, Coverage, Price Plan, and Generate Pa
     // --- 9. Generate Password ---
     console.log("Starting Password Generation...");
 
-    // // Select Client (Search for the dynamically created one)
-    // await waitForElementAndClick(
-    //   page,
-    //   'div:has-text("Select Client")',
-    //   "Client dropdown"
-    // );
-
-    // // Use the clientName which is used for display
-    // await page.locator('div:has-text("Select Client") input').fill(clientName);
-    // await waitForElementAndClick(
-    //   page,
-    //   `role=option[name="${clientName}"]`,
-    //   "Created Client option"
-    // );
-
     await page.locator("#client-drpdwn svg").click();
     await page.locator("#react-select-39-input").fill(clientName);
     await page.getByRole("option", { name: clientName }).click();
-
-    // Select Application (Search for the dynamically created one)
-    // await waitForElementAndClick(
-    //   page,
-    //   "#application-drpdwn .css-19bb58m",
-    //   "Application dropdown"
-    // );
-    // // Use the compliant appName
-    // await waitForElementAndClick(
-    //   page,
-    //   `role=option[name="${appName}"]`,
-    //   "Created Application option"
-    // );
 
     await page
       .locator(".css-t3ipsp-control > .css-hlgwow > .css-19bb58m")
@@ -623,7 +556,13 @@ test("Full Happy Path: Create Client, App, Coverage, Price Plan, and Generate Pa
     );
     const download = await downloadPromise;
 
-    console.log(`Password file downloaded: ${download.suggestedFilename()}`);
+    // Ensure download is saved to disk so Playwright finishes download lifecycle
+    const suggested = download.suggestedFilename()
+      ? download.suggestedFilename()
+      : `password-${Date.now()}.txt`;
+    const savePath = path.join("test-results", suggested);
+    await download.saveAs(savePath);
+    console.log(`Password file downloaded and saved: ${savePath}`);
 
     // Verify Password Generation Success
     await expect(page.locator("#market-form-model")).toContainText(
@@ -646,6 +585,21 @@ test("Full Happy Path: Create Client, App, Coverage, Price Plan, and Generate Pa
 
     // Re-throw the error to ensure Playwright marks the test as failed
     throw error;
+  } finally {
+    // Ensure resources are closed so Playwright worker can exit cleanly
+    try {
+      if (!page.isClosed()) await page.close();
+    } catch (err) {
+      console.warn("Error closing page in finally:", err);
+    }
+    try {
+      await page.context().close();
+    } catch (err) {
+      console.warn(
+        "Error closing context in finally (may be already closed):",
+        err
+      );
+    }
   }
 
   console.log("Test Completed.");
