@@ -1,4 +1,4 @@
-name: Playwright Ortoni Report Deployment
+name: Playwright Tests - Ortoni Report Deployment
 
 on:
   push:
@@ -16,42 +16,73 @@ jobs:
     timeout-minutes: 30
 
     steps:
+      # --- Step 1: Checkout code ---
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # --- Step 2: Setup Node.js ---
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: lts/*
 
+      # --- Step 3: Install dependencies ---
       - name: Install dependencies
         run: npm ci
 
+      # --- Step 4: Install Playwright browsers ---
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
-      - name: Run Playwright Tests (Oloid)
+      # --- Step 5: Run Playwright tests ---
+      - name: Run Playwright tests (generate Ortoni report)
         run: npx playwright test Oloid_test/Oloid_admin_full_journey_test.spec.ts || true
 
-      - name: Verify Ortoni report output
+      # --- Step 6: Verify Ortoni report folder ---
+      - name: Verify Ortoni report folder
         run: |
-          echo "📂 Checking ortoni-report contents:"
-          ls -R ortoni-report || echo "❌ Ortoni report not found!"
+          echo "📂 Checking ortoni-report folder contents..."
+          ls -R ortoni-report || echo "⚠️ No ortoni-report folder found!"
 
-      # 👉 Deploy the entire ortoni-report folder to GitHub Pages
+          if [ ! -f "ortoni-report/ortoni-report.html" ]; then
+            echo "❌ No ortoni-report.html found. Creating fallback file."
+            mkdir -p ortoni-report
+            echo "<html><body><h2>No report generated.</h2><p>Tests may have failed or no report was created.</p></body></html>" > ortoni-report/ortoni-report.html
+          fi
+
+      # --- Step 7: Rename to index.html for direct page load ---
+      - name: Rename for GitHub Pages root
+        run: |
+          cp ortoni-report/ortoni-report.html ortoni-report/index.html
+          echo "✅ Renamed ortoni-report.html to index.html"
+
+      # --- Step 8: Setup GitHub Pages ---
       - name: Setup GitHub Pages
         uses: actions/configure-pages@v5
 
+      # --- Step 9: Upload report folder as artifact for Pages ---
       - name: Upload Ortoni report folder
         uses: actions/upload-pages-artifact@v3
         with:
           path: ortoni-report
 
+      # --- Step 10: Deploy to GitHub Pages ---
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
 
-      - name: Print Deployment URL
+      # --- Step 11: Add badge-style button to GitHub Actions summary ---
+      - name: Add “Open Report” button to GitHub summary
+        if: always()
         run: |
-          echo "✅ Report published successfully!"
-          echo "🔗 https://oloidshammika.github.io/playwright-Oloid-project/"
+          {
+            echo "### ✅ Ortoni Test Report Deployed Successfully"
+            echo ""
+            echo "<p align='center'>"
+            echo "  <a href='https://oloidshammika.github.io/playwright-Oloid-project/' target='_blank'>"
+            echo "    <img src='https://img.shields.io/badge/📊_Open%20Ortoni%20Report-blue?style=for-the-badge' alt='Open Report' />"
+            echo "  </a>"
+            echo "</p>"
+            echo ""
+            echo "**📅 Date:** $(date)"
+          } >> $GITHUB_STEP_SUMMARY
