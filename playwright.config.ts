@@ -4,7 +4,6 @@ import { OrtoniReportConfig } from "ortoni-report";
 const reportConfig: OrtoniReportConfig = {
   open: process.env.CI ? "never" : "always",
   folderPath: "ortoni-report",
-  // ✅ FIX: Use the correct filename (ortoni-report.html)
   filename: "ortoni-report.html",
   title: "Oloid Test Run Report",
   showProject: false,
