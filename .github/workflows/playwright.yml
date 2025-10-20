@@ -1,4 +1,4 @@
-name: Playwright Tests - Ortoni Report Deployment (Fixed)
+name: Playwright Tests - Ortoni Report Deployment (Restored SQLite Fix)
 
 on:
   push:
@@ -13,10 +13,10 @@ permissions:
 jobs:
   test-and-deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
 
     steps:
-      # --- Checkout and Setup ---
+      # --- 1. Checkout & Setup ---
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -31,46 +31,66 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
-      # --- Run Playwright Tests ---
-      - name: Run Playwright tests (generate SQLite data)
+      # --- 2. Run Playwright Tests to Generate Ortoni Artifact ---
+      - name: Run Playwright tests
         run: npx playwright test Oloid_test/Oloid_admin_full_journey_test.spec.ts || true
 
-      # --- Install Ortoni CLI ---
+      # --- 3. Upload Ortoni artifact (contains SQLite & attachments) ---
+      - name: Upload Ortoni Report Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ortoni-report-artifact
+          path: |
+            ortoni-data
+            ortoni-data-history.sqlite
+          if-no-files-found: warn
+          compression-level: 6
+
+      # --- 4. Install Ortoni CLI ---
       - name: Install Ortoni CLI
         run: npm install ortoni-report
 
-      # --- Generate Ortoni HTML Report from SQLite Data ---
+      # --- 5. Download the Ortoni artifact ---
+      - name: Download Ortoni Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ortoni-report-artifact
+          path: /tmp/ortoni-download
+
+      # --- 6. Generate Ortoni HTML Report from SQLite ---
       - name: Generate Ortoni HTML Report
         run: |
           set -e
-          DOWNLOAD_DIR="ortoni-data"
-          DB_FILE="./ortoni-data-history.sqlite"
-          DEPLOY_DIR="ortoni-report"
+          DOWNLOAD_DIR="/tmp/ortoni-download"
+          DB_FILE="$DOWNLOAD_DIR/ortoni-data-history.sqlite"
+          DATA_FOLDER="$DOWNLOAD_DIR/ortoni-data"
+          DEPLOY_DIR="$GITHUB_WORKSPACE/ortoni-report"
 
-          echo "📦 Checking SQLite and data folders..."
+          echo "📦 Listing artifact files:"
+          ls -R "$DOWNLOAD_DIR" || true
+
           mkdir -p "$DEPLOY_DIR"
 
           if [ ! -f "$DB_FILE" ]; then
-            echo "❌ No SQLite DB found. Creating fallback report."
+            echo "❌ No SQLite file found. Creating fallback report."
             echo "<html><body><h2>No report generated.</h2><p>SQLite file missing or test failed early.</p></body></html>" > "$DEPLOY_DIR/ortoni-report.html"
           else
-            echo "✅ SQLite found. Generating report..."
-            npx ortoni-report show-report \
-              --file "$DEPLOY_DIR/ortoni-report.html" \
-              --dir "$DEPLOY_DIR" \
-              --title "Playwright Oloid Test Report" \
-              --port 3000 || echo "⚠️ Ortoni CLI failed to process data"
+            echo "✅ SQLite found. Generating Ortoni HTML report..."
+            cp "$DB_FILE" "$DEPLOY_DIR/"
+            cp -r "$DATA_FOLDER" "$DEPLOY_DIR/" || true
+            npx ortoni-report show-report --dir "$DEPLOY_DIR" --file ortoni-report.html --title "Playwright Oloid Test Report" --port 3000 || echo "⚠️ Ortoni CLI failed."
           fi
 
           # Ensure index.html exists for GitHub Pages
           cp "$DEPLOY_DIR/ortoni-report.html" "$DEPLOY_DIR/index.html"
-          echo "✅ Report ready for deployment."
+          echo "✅ Report prepared successfully."
 
-      # --- Setup and Deploy to GitHub Pages ---
+      # --- 7. Deploy to GitHub Pages ---
       - name: Setup GitHub Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload Ortoni report folder
+      - name: Upload report folder
         uses: actions/upload-pages-artifact@v3
         with:
           path: ortoni-report
@@ -79,8 +99,8 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-      # --- Add Summary Button ---
-      - name: Add badge button to GitHub summary
+      # --- 8. Add summary badge ---
+      - name: Add “Open Report” badge to GitHub summary
         if: always()
         run: |
           {
