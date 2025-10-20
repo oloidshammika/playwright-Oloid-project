@@ -7,7 +7,7 @@ const reportConfig: OrtoniReportConfig = {
   filename: "ortoni-report.html",
   title: "Oloid Test Run Report",
   showProject: false,
-  projectName: "Ortoni-Report",
+  projectName: "Oloid-Test-Automation",
   testType: "e2e",
   authorName: "Shammika Dahanayaka",
   base64Image: false,
