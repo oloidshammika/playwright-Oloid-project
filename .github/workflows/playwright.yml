@@ -1,4 +1,4 @@
-name: Playwright Tests - Ortoni Report Deployment
+name: Playwright Tests - Ortoni Report Deployment (Fixed)
 
 on:
   push:
@@ -16,67 +16,75 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      # --- Step 1: Checkout code ---
+      # --- Checkout and Setup ---
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # --- Step 2: Setup Node.js ---
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: lts/*
 
-      # --- Step 3: Install dependencies ---
       - name: Install dependencies
         run: npm ci
 
-      # --- Step 4: Install Playwright browsers ---
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
-      # --- Step 5: Run Playwright tests ---
-      - name: Run Playwright tests (generate Ortoni report)
+      # --- Run Playwright Tests ---
+      - name: Run Playwright tests (generate SQLite data)
         run: npx playwright test Oloid_test/Oloid_admin_full_journey_test.spec.ts || true
 
-      # --- Step 6: Verify Ortoni report folder ---
-      - name: Verify Ortoni report folder
-        run: |
-          echo "📂 Checking ortoni-report folder contents..."
-          ls -R ortoni-report || echo "⚠️ No ortoni-report folder found!"
+      # --- Install Ortoni CLI ---
+      - name: Install Ortoni CLI
+        run: npm install ortoni-report
 
-          if [ ! -f "ortoni-report/ortoni-report.html" ]; then
-            echo "❌ No ortoni-report.html found. Creating fallback file."
-            mkdir -p ortoni-report
-            echo "<html><body><h2>No report generated.</h2><p>Tests may have failed or no report was created.</p></body></html>" > ortoni-report/ortoni-report.html
+      # --- Generate Ortoni HTML Report from SQLite Data ---
+      - name: Generate Ortoni HTML Report
+        run: |
+          set -e
+          DOWNLOAD_DIR="ortoni-data"
+          DB_FILE="./ortoni-data-history.sqlite"
+          DEPLOY_DIR="ortoni-report"
+
+          echo "📦 Checking SQLite and data folders..."
+          mkdir -p "$DEPLOY_DIR"
+
+          if [ ! -f "$DB_FILE" ]; then
+            echo "❌ No SQLite DB found. Creating fallback report."
+            echo "<html><body><h2>No report generated.</h2><p>SQLite file missing or test failed early.</p></body></html>" > "$DEPLOY_DIR/ortoni-report.html"
+          else
+            echo "✅ SQLite found. Generating report..."
+            npx ortoni-report show-report \
+              --file "$DEPLOY_DIR/ortoni-report.html" \
+              --dir "$DEPLOY_DIR" \
+              --title "Playwright Oloid Test Report" \
+              --port 3000 || echo "⚠️ Ortoni CLI failed to process data"
           fi
 
-      # --- Step 7: Rename to index.html for direct page load ---
-      - name: Rename for GitHub Pages root
-        run: |
-          cp ortoni-report/ortoni-report.html ortoni-report/index.html
-          echo "✅ Renamed ortoni-report.html to index.html"
+          # Ensure index.html exists for GitHub Pages
+          cp "$DEPLOY_DIR/ortoni-report.html" "$DEPLOY_DIR/index.html"
+          echo "✅ Report ready for deployment."
 
-      # --- Step 8: Setup GitHub Pages ---
+      # --- Setup and Deploy to GitHub Pages ---
       - name: Setup GitHub Pages
         uses: actions/configure-pages@v5
 
-      # --- Step 9: Upload report folder as artifact for Pages ---
       - name: Upload Ortoni report folder
         uses: actions/upload-pages-artifact@v3
         with:
           path: ortoni-report
 
-      # --- Step 10: Deploy to GitHub Pages ---
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
 
-      # --- Step 11: Add badge-style button to GitHub Actions summary ---
-      - name: Add “Open Report” button to GitHub summary
+      # --- Add Summary Button ---
+      - name: Add badge button to GitHub summary
         if: always()
         run: |
           {
-            echo "### ✅ Ortoni Test Report Deployed Successfully"
+            echo "### ✅ Ortoni Test Report Deployed"
             echo ""
             echo "<p align='center'>"
             echo "  <a href='https://oloidshammika.github.io/playwright-Oloid-project/' target='_blank'>"
