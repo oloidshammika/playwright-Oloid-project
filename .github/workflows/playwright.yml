@@ -98,7 +98,7 @@ jobs:
             exit 1
           fi
 
-          # Copy DB and data folder to deployment folder
+          # Copy the SQLite DB and data folder
           cp "$DB_FILE" "$DEPLOY_DIR/"
           if [ -d "$DATA_FOLDER" ]; then
             cp -r "$DATA_FOLDER" "$DEPLOY_DIR/"
@@ -107,12 +107,15 @@ jobs:
 
           cd "$DEPLOY_DIR"
 
-          # Run Ortoni generator
+          # Correct Ortoni CLI command
           echo "Running Ortoni report generator..."
-          npx ortoni-report show-report --dir "." --file ortoni-report.html --port 3000 || \
-          echo "⚠️ Fallback: manual HTML creation."
+          npx ortoni-report show-report \
+            --database "./ortoni-data-history.sqlite" \
+            --dir "." \
+            --file ortoni-report.html \
+            --port 3000 || echo "⚠️ Fallback: Ortoni CLI failed."
 
-          # If ortoni-report.html missing, create a simple fallback
+          # Create fallback if report missing
           if [ ! -f "ortoni-report.html" ]; then
             echo "<html><body><h2>No report generated.</h2></body></html>" > ortoni-report.html
             echo "⚠️ Created fallback empty report."
@@ -133,3 +136,9 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Print Deployed URL
+        run: |
+          echo "✅ Report successfully deployed!"
+          echo "🔗 View your report at:"
+          echo "https://oloidshammika.github.io/playwright-Oloid-project/"
