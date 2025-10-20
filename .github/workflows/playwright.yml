@@ -1,4 +1,5 @@
-name: Playwright Tests - Oloid Folder with Ortoni Report
+name: Playwright Ortoni Report Deployment
+
 on:
   push:
     branches: [main, master]
@@ -10,9 +11,10 @@ permissions:
   id-token: write
 
 jobs:
-  test:
-    timeout-minutes: 60
+  test-and-deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -28,102 +30,27 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
-      - name: Run Playwright tests for Oloid_test folder
-        run: npx playwright test Oloid_test/Oloid_admin_full_journey_test.spec.ts
-        continue-on-error: true
+      - name: Run Playwright Tests (Oloid)
+        run: npx playwright test Oloid_test/Oloid_admin_full_journey_test.spec.ts || true
 
-      - name: Upload Ortoni Report Artifact
-        uses: actions/upload-artifact@v4
-        if: ${{ always() }}
-        with:
-          name: ortoni-report-artifact
-          path: ortoni-report/
-          if-no-files-found: error
-          compression-level: 6
-
-      - name: Upload Playwright Report
-        uses: actions/upload-artifact@v4
-        if: ${{ always() }}
-        with:
-          name: playwright-test-results
-          path: playwright-report/
-
-  deploy-report:
-    needs: test
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Ortoni CLI
-        run: npm install ortoni-report
-
-      - name: Setup Pages
+      - name: Verify Ortoni report output
+        run: |
+          echo "📂 Checking ortoni-report contents:"
+          ls -R ortoni-report || echo "❌ Ortoni report not found!"
+      # 👉 Deploy the entire ortoni-report folder to GitHub Pages
+      - name: Setup GitHub Pages
         uses: actions/configure-pages@v5
 
-      - name: Download Ortoni Report Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ortoni-report-artifact
-          path: /tmp/ortoni-download
-
-      - name: Generate HTML Report from SQLite Data
-        run: |
-          set -e
-          DEPLOY_DIR="$GITHUB_WORKSPACE/ortoni-report"
-          DOWNLOAD_DIR="/tmp/ortoni-download"
-          DB_FILE="$DOWNLOAD_DIR/ortoni-data-history.sqlite"
-          DATA_FOLDER="$DOWNLOAD_DIR/ortoni-data"
-
-          echo "📦 Listing downloaded files for debugging:"
-          ls -R "$DOWNLOAD_DIR" || true
-
-          mkdir -p "$DEPLOY_DIR"
-
-          if [ ! -f "$DB_FILE" ]; then
-            echo "❌ ERROR: SQLite file not found at $DB_FILE. Creating fallback report."
-            echo "<html><body><h2>No report generated.</h2><p>Database file missing, tests may have failed early.</p></body></html>" > "$DEPLOY_DIR/ortoni-report.html"
-            ln -s "$DEPLOY_DIR/ortoni-report.html" "$DEPLOY_DIR/index.html"
-            exit 0 
-          fi
-
-          # Copy database and data folder to the deployment directory
-          cp "$DB_FILE" "$DEPLOY_DIR/"
-          if [ -d "$DATA_FOLDER" ]; then
-            cp -r "$DATA_FOLDER" "$DEPLOY_DIR/"
-          fi
-          echo "✅ SQLite file and data folder copied successfully."
-
-          cd "$DEPLOY_DIR"
-
-          # ✅ Generate report using Ortoni CLI
-          echo "⚙️ Running Ortoni report generator..."
-          npx ortoni-report show-report ./ortoni-data-history.sqlite \
-            --dir "." \
-            --file ortoni-report.html \
-            --title "Playwright Oloid Test Report" \
-            --port 3000 || echo "⚠️ Ortoni CLI failed to generate report."
-
-          # Final fallback check
-          if [ ! -f "ortoni-report.html" ]; then
-            echo "<html><body><h2>No report generated.</h2><p>Ortoni CLI failed to process the SQLite data.</p></body></html>" > ortoni-report.html
-            echo "⚠️ Created final fallback empty report."
-          fi
-
-          # Create index.html for GitHub Pages
-          ln -s ortoni-report.html index.html
-          echo "📂 Final files in deployment directory:"
-          ls -l
-
-      - name: Upload Pages Artifact
+      - name: Upload Ortoni report folder
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ortoni-report/
+          path: ortoni-report
 
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Print Deployment URL
+        run: |
+          echo "✅ Report published successfully!"
+          echo "🔗 https://oloidshammika.github.io/playwright-Oloid-project/"
