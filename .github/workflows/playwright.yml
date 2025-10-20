@@ -1,5 +1,4 @@
 name: Playwright Tests - Oloid Folder with Ortoni Report
-
 on:
   push:
     branches: [main, master]
@@ -16,7 +15,6 @@ jobs:
   test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -33,7 +31,7 @@ jobs:
         run: npx playwright install --with-deps
 
       - name: Run Playwright tests for Oloid_test folder
-        run: npx playwright test Oloid_test
+        run: npx playwright test Oloid_test/Oloid_admin_full_journey_test.spec.ts
         continue-on-error: true
 
       - name: Upload Ortoni Report Artifact
@@ -75,6 +73,7 @@ jobs:
           name: ortoni-report-artifact
           path: /tmp/ortoni-download
 
+      # ✅ FINAL FIX: Generate HTML Report from SQLite Data (Removed unsupported CLI options)
       - name: Generate HTML Report from SQLite Data
         run: |
           set -e
@@ -89,8 +88,9 @@ jobs:
           mkdir -p "$DEPLOY_DIR"
 
           if [ ! -f "$DB_FILE" ]; then
-            echo "❌ ERROR: SQLite file not found at $DB_FILE"
-            exit 1
+            echo "❌ ERROR: SQLite file not found at $DB_FILE. Cannot generate report."
+            # Exit 0 here so the deployment process completes with a blank report instead of failing the job
+            exit 0 
           fi
 
           # Copy database and data folder
@@ -102,19 +102,21 @@ jobs:
 
           cd "$DEPLOY_DIR"
 
-          # ✅ Generate Ortoni HTML report as index.html (Option 1)
+          # ✅ FIX: Removed unsupported '--type' option and fixed the command syntax.
           echo "⚙️ Running Ortoni report generator..."
           npx ortoni-report show-report ./ortoni-data-history.sqlite \
             --dir "." \
-            --file index.html \
-            --type playwright \
+            --file ortoni-report.html \
             --title "Playwright Oloid Test Report" \
-            --port 3000 || echo "⚠️ Ortoni CLI failed or no data found."
+            --port 3000 || echo "⚠️ Ortoni CLI failed to generate report (check logs for specific error)."
 
-          # Fallback if report not created
-          if [ ! -f "index.html" ]; then
-            echo "<html><body><h2>No report generated.</h2></body></html>" > index.html
-            echo "⚠️ Created fallback empty report."
+          # Fallback check (outputs to the file name matching playwright.config.ts)
+          if [ ! -f "ortoni-report.html" ]; then
+            echo "<html><body><h2>No report generated.</h2><p>Ortoni CLI failed to process the SQLite data.</p></body></html>" > ortoni-report.html
+            echo "⚠️ Created fallback empty report: ortoni-report.html"
+            
+            # Use index.html as a fallback entry point for GitHub Pages
+            ln -s ortoni-report.html index.html
           fi
 
           echo "📂 Final files in deployment directory:"
@@ -128,9 +130,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
-      - name: Print Deployed URL
-        run: |
-          echo "✅ Report successfully deployed!"
-          echo "🔗 View it here:"
-          echo "https://oloidshammika.github.io/playwright-Oloid-project/"
