@@ -1,5 +1,4 @@
-name: Playwright Tests - Ortoni Report Deployment (Restored SQLite Fix)
-
+name: Playwright Tests - Oloid Folder with Ortoni Report
 on:
   push:
     branches: [main, master]
@@ -11,12 +10,10 @@ permissions:
   id-token: write
 
 jobs:
-  test-and-deploy:
+  test:
+    timeout-minutes: 60
     runs-on: ubuntu-latest
-    timeout-minutes: 40
-
     steps:
-      # --- 1. Checkout & Setup ---
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -31,86 +28,102 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
-      # --- 2. Run Playwright Tests to Generate Ortoni Artifact ---
-      - name: Run Playwright tests
-        run: npx playwright test Oloid_test/Oloid_admin_full_journey_test.spec.ts || true
+      - name: Run Playwright tests for Oloid_test folder
+        run: npx playwright test Oloid_test/Oloid_admin_full_journey_test.spec.ts
+        continue-on-error: true
 
-      # --- 3. Upload Ortoni artifact (contains SQLite & attachments) ---
       - name: Upload Ortoni Report Artifact
-        if: always()
         uses: actions/upload-artifact@v4
+        if: ${{ always() }}
         with:
           name: ortoni-report-artifact
-          path: |
-            ortoni-data
-            ortoni-data-history.sqlite
-          if-no-files-found: warn
+          path: ortoni-report/
+          if-no-files-found: error
           compression-level: 6
 
-      # --- 4. Install Ortoni CLI ---
+      - name: Upload Playwright Report
+        uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: playwright-test-results
+          path: playwright-report/
+
+  deploy-report:
+    needs: test
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Install Ortoni CLI
         run: npm install ortoni-report
 
-      # --- 5. Download the Ortoni artifact ---
-      - name: Download Ortoni Artifact
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Download Ortoni Report Artifact
         uses: actions/download-artifact@v4
         with:
           name: ortoni-report-artifact
           path: /tmp/ortoni-download
 
-      # --- 6. Generate Ortoni HTML Report from SQLite ---
-      - name: Generate Ortoni HTML Report
+      - name: Generate HTML Report from SQLite Data
         run: |
           set -e
+          DEPLOY_DIR="$GITHUB_WORKSPACE/ortoni-report"
           DOWNLOAD_DIR="/tmp/ortoni-download"
           DB_FILE="$DOWNLOAD_DIR/ortoni-data-history.sqlite"
           DATA_FOLDER="$DOWNLOAD_DIR/ortoni-data"
-          DEPLOY_DIR="$GITHUB_WORKSPACE/ortoni-report"
 
-          echo "📦 Listing artifact files:"
+          echo "📦 Listing downloaded files for debugging:"
           ls -R "$DOWNLOAD_DIR" || true
 
           mkdir -p "$DEPLOY_DIR"
 
           if [ ! -f "$DB_FILE" ]; then
-            echo "❌ No SQLite file found. Creating fallback report."
-            echo "<html><body><h2>No report generated.</h2><p>SQLite file missing or test failed early.</p></body></html>" > "$DEPLOY_DIR/ortoni-report.html"
-          else
-            echo "✅ SQLite found. Generating Ortoni HTML report..."
-            cp "$DB_FILE" "$DEPLOY_DIR/"
-            cp -r "$DATA_FOLDER" "$DEPLOY_DIR/" || true
-            npx ortoni-report show-report --dir "$DEPLOY_DIR" --file ortoni-report.html --title "Playwright Oloid Test Report" --port 3000 || echo "⚠️ Ortoni CLI failed."
+            echo "❌ ERROR: SQLite file not found at $DB_FILE. Creating fallback report."
+            echo "<html><body><h2>No report generated.</h2><p>Database file missing, tests may have failed early.</p></body></html>" > "$DEPLOY_DIR/ortoni-report.html"
+            ln -s "$DEPLOY_DIR/ortoni-report.html" "$DEPLOY_DIR/index.html"
+            exit 0 
           fi
 
-          # Ensure index.html exists for GitHub Pages
-          cp "$DEPLOY_DIR/ortoni-report.html" "$DEPLOY_DIR/index.html"
-          echo "✅ Report prepared successfully."
+          # Copy database and data folder to the deployment directory
+          cp "$DB_FILE" "$DEPLOY_DIR/"
+          if [ -d "$DATA_FOLDER" ]; then
+            cp -r "$DATA_FOLDER" "$DEPLOY_DIR/"
+          fi
+          echo "✅ SQLite file and data folder copied successfully."
 
-      # --- 7. Deploy to GitHub Pages ---
-      - name: Setup GitHub Pages
-        uses: actions/configure-pages@v5
+          cd "$DEPLOY_DIR"
 
-      - name: Upload report folder
+          # ✅ Generate report using Ortoni CLI
+          echo "⚙️ Running Ortoni report generator..."
+          npx ortoni-report show-report ./ortoni-data-history.sqlite \
+            --dir "." \
+            --file ortoni-report.html \
+            --title "Playwright Oloid Test Report" \
+            --port 3000 || echo "⚠️ Ortoni CLI failed to generate report."
+
+          # Final fallback check
+          if [ ! -f "ortoni-report.html" ]; then
+            echo "<html><body><h2>No report generated.</h2><p>Ortoni CLI failed to process the SQLite data.</p></body></html>" > ortoni-report.html
+            echo "⚠️ Created final fallback empty report."
+          fi
+
+          # Create index.html for GitHub Pages
+          ln -s ortoni-report.html index.html
+          echo "📂 Final files in deployment directory:"
+          ls -l
+
+      - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ortoni-report
+          path: ortoni-report/
 
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
-      # --- 8. Add summary badge ---
-      - name: Add “Open Report” badge to GitHub summary
-        if: always()
-        run: |
-          {
-            echo "### ✅ Ortoni Test Report Deployed"
-            echo ""
-            echo "<p align='center'>"
-            echo "  <a href='https://oloidshammika.github.io/playwright-Oloid-project/' target='_blank'>"
-            echo "    <img src='https://img.shields.io/badge/📊_Open%20Ortoni%20Report-blue?style=for-the-badge' alt='Open Report' />"
-            echo "  </a>"
-            echo "</p>"
-            echo ""
-            echo "**📅 Date:** $(date)"
-          } >> $GITHUB_STEP_SUMMARY
