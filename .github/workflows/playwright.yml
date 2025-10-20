@@ -18,16 +18,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: lts/*
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Playwright Browsers
+      - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
       - name: Run Playwright tests for Oloid_test folder
@@ -48,7 +50,7 @@ jobs:
           if-no-files-found: error
           compression-level: 6
 
-      - name: Archive Playwright Test Results
+      - name: Archive Playwright test results
         uses: actions/upload-artifact@v4
         if: ${{ always() }}
         with:
@@ -63,7 +65,8 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Install Ortoni CLI
         run: npm install ortoni-report
@@ -95,7 +98,7 @@ jobs:
             exit 1
           fi
 
-          # Copy DB and the data folder (attachments, screenshots, etc.)
+          # Copy DB and data folder
           cp "$DB_FILE" "$DEPLOY_DIR/"
           if [ -d "$DATA_FOLDER" ]; then
             cp -r "$DATA_FOLDER" "$DEPLOY_DIR/"
@@ -104,9 +107,15 @@ jobs:
 
           cd "$DEPLOY_DIR"
 
-          # Run the Ortoni CLI directly in the same folder
+          # Run the Ortoni report generator
           npx ortoni-report show-report --dir "." --file ortoni-report.html --port 3000
           echo "✅ HTML report generated successfully."
 
       - name: Upload Pages Artifact
-        uses: acti
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ortoni-report/
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
