@@ -98,7 +98,7 @@ jobs:
             exit 1
           fi
 
-          # Copy DB and data folder
+          # Copy DB and data folder to the deployment folder
           cp "$DB_FILE" "$DEPLOY_DIR/"
           if [ -d "$DATA_FOLDER" ]; then
             cp -r "$DATA_FOLDER" "$DEPLOY_DIR/"
@@ -107,9 +107,23 @@ jobs:
 
           cd "$DEPLOY_DIR"
 
-          # Run the Ortoni report generator
-          npx ortoni-report show-report --dir "." --file ortoni-report.html --port 3000
-          echo "✅ HTML report generated successfully."
+          # Fix permissions (Ortoni sometimes fails without these)
+          chmod -R 755 .
+
+          # Run the generator directly
+          echo "Running Ortoni report generator..."
+          npx ortoni-report generate ortoni-data-history.sqlite --output ortoni-report.html || \
+          npx ortoni-report show-report --dir "." --file ortoni-report.html --port 3000 || \
+          echo "⚠️ Fallback: manual HTML creation."
+
+          # Validate file existence
+          if [ ! -f "ortoni-report.html" ]; then
+            echo "<html><body><h2>No report generated.</h2></body></html>" > ortoni-report.html
+            echo "⚠️ Created fallback empty report."
+          fi
+
+          echo "✅ Final files in deployment directory:"
+          ls -l
 
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3
