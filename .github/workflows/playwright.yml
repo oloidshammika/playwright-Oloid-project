@@ -6,6 +6,7 @@ on:
     branches: [main, master]
   workflow_dispatch:
 
+# Permissions are critical for GitHub Pages deployment
 permissions:
   contents: read
   pages: write
@@ -26,7 +27,7 @@ jobs:
         run: npx playwright install --with-deps
 
       - name: Run Playwright tests for Oloid_test folder
-        # This step runs tests, generating ortoni-data-history.sqlite
+        # Runs the tests and generates the ortoni-data-history.sqlite file
         run: npx playwright test Oloid_test
         continue-on-error: true
 
@@ -35,7 +36,7 @@ jobs:
         if: ${{ always() }}
         with:
           name: ortoni-report-artifact
-          path: ortoni-report/
+          path: ortoni-report/ # Uploads the contents of the ortoni-report folder
           if-no-files-found: warn
           compression-level: 6
 
@@ -49,6 +50,7 @@ jobs:
   deploy-report:
     needs: test
     runs-on: ubuntu-latest
+    # Required for GitHub Pages URL visibility
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -57,38 +59,37 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Ortoni CLI
-        # Installs the main 'ortoni-report' package which includes the CLI
+        # Installs the correct package 'ortoni-report' (not ortoni-report-cli)
         run: npm install ortoni-report
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      # Download artifact contents into a temporary location
       - name: Download Ortoni Report Artifact
+        # Downloads the artifact contents to a temporary path
         uses: actions/download-artifact@v4
         with:
           name: ortoni-report-artifact
           path: /tmp/ortoni-download
 
-      # ✅ FINAL FIX: Uses $GITHUB_WORKSPACE and corrects the nested path for the artifact content.
+      # ✅ FINAL FIX: Uses $GITHUB_WORKSPACE and corrects the nested artifact path structure.
       - name: Generate HTML Report from SQLite Data
         run: |
-          # Define standard paths using the $GITHUB_WORKSPACE variable for stability
+          # 1. Define paths relative to the $GITHUB_WORKSPACE environment variable for reliability.
           DEPLOY_DIR="$GITHUB_WORKSPACE/ortoni-report"
 
-          # The downloaded artifact includes a nested folder named 'ortoni-report'
+          # FIX: The downloaded artifact created a nested folder named 'ortoni-report' inside /tmp/ortoni-download
           DOWNLOAD_DIR="/tmp/ortoni-download/ortoni-report" 
           DB_FILE="$DOWNLOAD_DIR/ortoni-data-history.sqlite"
 
-          # 1. Ensure the target deployment directory exists
+          # 2. Ensure the target deployment directory exists
           mkdir -p "$DEPLOY_DIR"
 
-          # 2. Copy the database file from the downloaded artifact location 
-          #    This copies the SQLite file into the deployment folder.
+          # 3. Copy the database file from the correct downloaded artifact location 
           cp "$DB_FILE" "$DEPLOY_DIR/"
 
-          # 3. Run the generator from the deployment folder using the full path.
-          # The CLI will now find the .sqlite file in the DEPLOY_DIR and generate ortoni-report.html.
+          # 4. Run the generator from the deployment folder.
+          # The CLI will find the copied .sqlite file and generate ortoni-report.html.
           npx ortoni-report show-report --dir "$DEPLOY_DIR" --file ortoni-report.html --port 3000
 
       - name: Upload Pages Artifact
