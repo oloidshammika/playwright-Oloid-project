@@ -88,7 +88,7 @@ jobs:
           DB_FILE="$DOWNLOAD_DIR/ortoni-data-history.sqlite"
           DATA_FOLDER="$DOWNLOAD_DIR/ortoni-data"
 
-          echo "Listing downloaded files:"
+          echo "📦 Listing downloaded files:"
           ls -R "$DOWNLOAD_DIR" || true
 
           mkdir -p "$DEPLOY_DIR"
@@ -98,7 +98,7 @@ jobs:
             exit 1
           fi
 
-          # Copy the SQLite DB and data folder
+          # Copy database and attachments to deployment folder
           cp "$DB_FILE" "$DEPLOY_DIR/"
           if [ -d "$DATA_FOLDER" ]; then
             cp -r "$DATA_FOLDER" "$DEPLOY_DIR/"
@@ -107,25 +107,27 @@ jobs:
 
           cd "$DEPLOY_DIR"
 
-          # Correct Ortoni CLI command
-          echo "Running Ortoni report generator..."
+          # Generate Ortoni report
+          echo "⚙️ Running Ortoni report generator..."
           npx ortoni-report show-report \
             --database "./ortoni-data-history.sqlite" \
             --dir "." \
             --file ortoni-report.html \
-            --port 3000 || echo "⚠️ Fallback: Ortoni CLI failed."
+            --type playwright \
+            --title "Playwright Oloid Test Report" \
+            --port 3000 || echo "⚠️ Ortoni CLI failed or no data found."
 
-          # Create fallback if report missing
+          # If report generation failed, create a fallback
           if [ ! -f "ortoni-report.html" ]; then
             echo "<html><body><h2>No report generated.</h2></body></html>" > ortoni-report.html
             echo "⚠️ Created fallback empty report."
           fi
 
-          # Create redirect index.html to ortoni-report.html
+          # Create redirect for GitHub Pages
           echo '<meta http-equiv="refresh" content="0; url=ortoni-report.html" />' > index.html
           echo "✅ Redirect index.html created."
 
-          echo "✅ Final files in deployment directory:"
+          echo "📂 Final files in deployment directory:"
           ls -l
 
       - name: Upload Pages Artifact
@@ -140,5 +142,5 @@ jobs:
       - name: Print Deployed URL
         run: |
           echo "✅ Report successfully deployed!"
-          echo "🔗 View your report at:"
+          echo "🔗 View it here:"
           echo "https://oloidshammika.github.io/playwright-Oloid-project/"
