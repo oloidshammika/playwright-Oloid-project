@@ -1,4 +1,4 @@
-name: Playwright Tests with Ortoni Report (Simplified)
+name: Playwright Ortoni Report Deployment
 
 on:
   push:
@@ -27,22 +27,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Playwright Browsers
+      - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
-      - name: Run Playwright tests with Ortoni report
+      - name: Run Playwright Tests (Oloid)
         run: npx playwright test Oloid_test/Oloid_admin_full_journey_test.spec.ts || true
 
       - name: Verify Ortoni report output
         run: |
-          echo "📂 Checking report files..."
+          echo "📂 Checking ortoni-report contents:"
           ls -R ortoni-report || echo "❌ Ortoni report not found!"
 
-      # Upload report folder directly to Pages
+      # 👉 Deploy the entire ortoni-report folder to GitHub Pages
       - name: Setup GitHub Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload Ortoni report as artifact
+      - name: Upload Ortoni report folder
         uses: actions/upload-pages-artifact@v3
         with:
           path: ortoni-report
@@ -51,7 +51,7 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-      - name: Print deployed URL
+      - name: Print Deployment URL
         run: |
-          echo "✅ Report deployed!"
+          echo "✅ Report published successfully!"
           echo "🔗 https://oloidshammika.github.io/playwright-Oloid-project/"
