@@ -31,7 +31,6 @@ jobs:
         run: npx playwright install --with-deps
 
       - name: Run Playwright tests for Oloid_test folder
-        # This generates ortoni-data-history.sqlite and ortoni-report.html inside ortoni-report/
         run: npx playwright test Oloid_test
         continue-on-error: true
 
@@ -45,9 +44,7 @@ jobs:
         if: ${{ always() }}
         with:
           name: ortoni-report-artifact
-          path: |
-            ortoni-report/
-            ortoni-report/ortoni-data-history.sqlite
+          path: ortoni-report/
           if-no-files-found: error
           compression-level: 6
 
@@ -86,6 +83,7 @@ jobs:
           DEPLOY_DIR="$GITHUB_WORKSPACE/ortoni-report"
           DOWNLOAD_DIR="/tmp/ortoni-download"
           DB_FILE="$DOWNLOAD_DIR/ortoni-data-history.sqlite"
+          DATA_FOLDER="$DOWNLOAD_DIR/ortoni-data"
 
           echo "Listing downloaded files:"
           ls -R "$DOWNLOAD_DIR" || true
@@ -94,22 +92,21 @@ jobs:
 
           if [ ! -f "$DB_FILE" ]; then
             echo "❌ ERROR: SQLite file not found at $DB_FILE"
-            echo "Available files:"
-            ls -R "$DOWNLOAD_DIR"
             exit 1
           fi
 
+          # Copy DB and the data folder (attachments, screenshots, etc.)
           cp "$DB_FILE" "$DEPLOY_DIR/"
-          echo "✅ SQLite file copied successfully to $DEPLOY_DIR"
+          if [ -d "$DATA_FOLDER" ]; then
+            cp -r "$DATA_FOLDER" "$DEPLOY_DIR/"
+          fi
+          echo "✅ SQLite file and data folder copied successfully."
 
-          # Generate Ortoni HTML report
-          npx ortoni-report show-report --dir "$DEPLOY_DIR" --file ortoni-report.html --port 3000
+          cd "$DEPLOY_DIR"
+
+          # Run the Ortoni CLI directly in the same folder
+          npx ortoni-report show-report --dir "." --file ortoni-report.html --port 3000
+          echo "✅ HTML report generated successfully."
 
       - name: Upload Pages Artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: ortoni-report/
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+        uses: acti
