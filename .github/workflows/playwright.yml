@@ -98,7 +98,7 @@ jobs:
             exit 1
           fi
 
-          # Copy database and attachments to deployment folder
+          # Copy database and attachments
           cp "$DB_FILE" "$DEPLOY_DIR/"
           if [ -d "$DATA_FOLDER" ]; then
             cp -r "$DATA_FOLDER" "$DEPLOY_DIR/"
@@ -107,17 +107,16 @@ jobs:
 
           cd "$DEPLOY_DIR"
 
-          # Generate Ortoni report
+          # Generate Ortoni HTML report (correct syntax)
           echo "⚙️ Running Ortoni report generator..."
-          npx ortoni-report show-report \
-            --database "./ortoni-data-history.sqlite" \
+          npx ortoni-report show-report ./ortoni-data-history.sqlite \
             --dir "." \
             --file ortoni-report.html \
             --type playwright \
             --title "Playwright Oloid Test Report" \
             --port 3000 || echo "⚠️ Ortoni CLI failed or no data found."
 
-          # If report generation failed, create a fallback
+          # Fallback if report not generated
           if [ ! -f "ortoni-report.html" ]; then
             echo "<html><body><h2>No report generated.</h2></body></html>" > ortoni-report.html
             echo "⚠️ Created fallback empty report."
