@@ -73,27 +73,32 @@ jobs:
           name: ortoni-report-artifact
           path: /tmp/ortoni-download
 
-      # ✅ FINAL FIX: Generate HTML Report from SQLite Data (Removed unsupported CLI options)
       - name: Generate HTML Report from SQLite Data
         run: |
           set -e
+          # Define paths using the $GITHUB_WORKSPACE variable for stability
           DEPLOY_DIR="$GITHUB_WORKSPACE/ortoni-report"
-          DOWNLOAD_DIR="/tmp/ortoni-download"
+
+          # The downloaded artifact contents are likely placed directly under /tmp/ortoni-download
+          DOWNLOAD_DIR="/tmp/ortoni-download" 
           DB_FILE="$DOWNLOAD_DIR/ortoni-data-history.sqlite"
           DATA_FOLDER="$DOWNLOAD_DIR/ortoni-data"
 
-          echo "📦 Listing downloaded files:"
+          echo "📦 Listing downloaded files for debugging:"
           ls -R "$DOWNLOAD_DIR" || true
 
           mkdir -p "$DEPLOY_DIR"
 
+          # Check if the database file exists
           if [ ! -f "$DB_FILE" ]; then
-            echo "❌ ERROR: SQLite file not found at $DB_FILE. Cannot generate report."
-            # Exit 0 here so the deployment process completes with a blank report instead of failing the job
+            # If the database is missing (e.g., if tests failed before creating it), create the empty report.
+            echo "❌ ERROR: SQLite file not found at $DB_FILE. Creating fallback report."
+            echo "<html><body><h2>No report generated.</h2><p>Database file missing, tests may have failed early.</p></body></html>" > "$DEPLOY_DIR/ortoni-report.html"
+            ln -s "$DEPLOY_DIR/ortoni-report.html" "$DEPLOY_DIR/index.html"
             exit 0 
           fi
 
-          # Copy database and data folder
+          # Copy database and data folder to the deployment directory
           cp "$DB_FILE" "$DEPLOY_DIR/"
           if [ -d "$DATA_FOLDER" ]; then
             cp -r "$DATA_FOLDER" "$DEPLOY_DIR/"
@@ -102,23 +107,22 @@ jobs:
 
           cd "$DEPLOY_DIR"
 
-          # ✅ FIX: Removed unsupported '--type' option and fixed the command syntax.
+          # ✅ FIX: Removed unsupported '--type' option which was causing the error: unknown option '--type'
           echo "⚙️ Running Ortoni report generator..."
           npx ortoni-report show-report ./ortoni-data-history.sqlite \
             --dir "." \
             --file ortoni-report.html \
             --title "Playwright Oloid Test Report" \
-            --port 3000 || echo "⚠️ Ortoni CLI failed to generate report (check logs for specific error)."
+            --port 3000 || echo "⚠️ Ortoni CLI failed to generate report."
 
-          # Fallback check (outputs to the file name matching playwright.config.ts)
+          # Final fallback check: if report not created, create the empty report.
           if [ ! -f "ortoni-report.html" ]; then
-            echo "<html><body><h2>No report generated.</h2><p>Ortoni CLI failed to process the SQLite data.</p></body></html>" > ortoni-report.html
-            echo "⚠️ Created fallback empty report: ortoni-report.html"
-            
-            # Use index.html as a fallback entry point for GitHub Pages
-            ln -s ortoni-report.html index.html
+            echo "<html><body><h2>No report generated.</h2><p>Ortoni CLI failed to process the SQLite data (check run logs).</p></body></html>" > ortoni-report.html
+            echo "⚠️ Created final fallback empty report."
           fi
 
+          # Create index.html symlink for GitHub Pages entry point
+          ln -s ortoni-report.html index.html
           echo "📂 Final files in deployment directory:"
           ls -l
 
