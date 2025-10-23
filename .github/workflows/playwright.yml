@@ -31,7 +31,7 @@ jobs:
         run: npx playwright install --with-deps
 
       - name: Run Playwright Tests (Oloid)
-        run: npx playwright test Oloid_test/Oloid_admin_full_journey_test.spec.ts || true
+        run: npx playwright test Oloid_test || true
 
       - name: Verify Ortoni report output
         run: |
