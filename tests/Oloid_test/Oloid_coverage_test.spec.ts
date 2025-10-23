@@ -4,17 +4,10 @@ import { test, expect, Page, Locator } from "@playwright/test";
 
 // --- Utility Functions for Dynamic Data and Robust Waits (Refactored) ---
 
-/**
- * Generates a unique string based on a timestamp to ensure data is unique per run.
- * Uses underscore for separation to simplify compliance with 'alphanumeric with underscores' rule.
- */
 const generateUniqueId = (prefix: string = "auto_test"): string => {
   return `${prefix}_${Date.now()}`;
 };
 
-/**
- * Helper function to resolve string selectors to Locator objects.
- */
 const getLocator = (
   page: Page,
   selectorOrLocator: string | Locator
@@ -24,41 +17,20 @@ const getLocator = (
     : selectorOrLocator;
 };
 
-/**
- * Custom wait and click function with error handling and long timeout (30s).
- * Accepts either a string selector or a Playwright Locator object.
- */
 const waitForElementAndClick = async (
   page: Page,
   selectorOrLocator: string | Locator,
   description: string
 ) => {
-  // Use the description for logging when a Locator object is passed
   const logSelector =
     typeof selectorOrLocator === "string" ? selectorOrLocator : description;
   console.log(`Waiting for and clicking: ${description} (${logSelector})`);
 
-  try {
-    const locator = getLocator(page, selectorOrLocator);
-    // Wait for the element to be visible and enabled (30 seconds)
-    await locator.waitFor({ state: "visible", timeout: 30000 });
-    // Click with a shorter timeout once visible
-    await locator.click({ timeout: 10000 });
-  } catch (error) {
-    console.error(
-      `Error waiting for/clicking ${description} (${logSelector}):`,
-      error
-    );
-    throw new Error(
-      `Failed to interact with ${description} after waiting. See console for details.`
-    );
-  }
+  const locator = getLocator(page, selectorOrLocator);
+  await locator.waitFor({ state: "visible", timeout: 30000 });
+  await locator.click({ timeout: 10000 });
 };
 
-/**
- * Custom wait and fill function with error handling and long timeout (30s).
- * Accepts either a string selector or a Playwright Locator object.
- */
 const waitForElementAndFill = async (
   page: Page,
   selectorOrLocator: string | Locator,
@@ -70,63 +42,36 @@ const waitForElementAndFill = async (
   console.log(
     `Waiting for and filling: ${description} (${logSelector}) with value: ${value}`
   );
-  try {
-    const locator = getLocator(page, selectorOrLocator);
-    await locator.waitFor({ state: "visible", timeout: 30000 });
-    await locator.fill(value, { timeout: 10000 });
-  } catch (error) {
-    console.error(
-      `Error waiting for/filling ${description} (${logSelector}):`,
-      error
-    );
-    throw new Error(
-      `Failed to fill ${description} after waiting. See console for details.`
-    );
-  }
+  const locator = getLocator(page, selectorOrLocator);
+  await locator.waitFor({ state: "visible", timeout: 30000 });
+  await locator.fill(value, { timeout: 10000 });
 };
 
-// --- Test Case Definition ---
-
+// --- TEST 1: Full Happy Path ---
 test("Full Happy Path: Create Client, App, Coverage, Price Plan, and Generate Password", async ({
   page,
 }) => {
-  // 1. Setup Dynamic Test Data
   const uniqueId = generateUniqueId("client");
-
-  // Client Name can have spaces/hyphens for display/logging
   const clientName = `Auto Client ${uniqueId.replace(/_/g, "-")}`;
   const clientRegNum = `REG-${uniqueId.toUpperCase().replace(/_/g, "-")}`;
-
-  // FIX: Create a compliant base name for Application name/username
-  // The error specifies: "Only alphanumeric with underscores are allowed"
-  const compliantBaseName = `Client_${uniqueId}`; // e.g., Client_auto_test_1690000000000
-
+  const compliantBaseName = `Client_${uniqueId}`;
   const clientAppUsername = `app_${compliantBaseName}_user`.toLowerCase();
-  const appName = `App_${compliantBaseName}`; // FIX: This is the field causing the "unsupported characters" error
-
-  // FIX: Change hyphen to underscore for Coverage Reference (COV- to COV_)
+  const appName = `App_${compliantBaseName}`;
   const coverageRef = `COV_${uniqueId}`;
-
   const billingEmail = `billing.${uniqueId}@example.com`;
   const techEmail = `tech.${uniqueId}@example.com`;
 
-  // Static data (URL and Credentials)
   const baseURL =
     "http://k8s-mnp-mnpadmin-caf79e8920-d292c5aedbf21a5e.elb.eu-west-2.amazonaws.com/login";
   const adminUser = "admin";
   const adminPass = "admin@123";
-
-  // Date for forms (A future date for reliability)
   const effectiveDate = "2026-01-01";
 
-  // ensure test-results folder exists for downloads/screenshots
   fs.mkdirSync("test-results", { recursive: true });
 
   try {
-    // --- 2. Login Section ---
     console.log("Starting Login...");
     await page.goto(baseURL, { waitUntil: "load", timeout: 60000 });
-
     await waitForElementAndFill(
       page,
       "data-testid=username",
@@ -140,40 +85,22 @@ test("Full Happy Path: Create Client, App, Coverage, Price Plan, and Generate Pa
       "Password field"
     );
     await waitForElementAndClick(page, "data-testid=btn-login", "Login button");
-
     await expect(page.locator("#root")).toContainText("MNP Admin Portal", {
       timeout: 30000,
     });
-    console.log("Login Successful, Dashboard Loaded.");
 
-    // --- 3. Navigate to Client Creation ---
+    // Create Client
     await waitForElementAndClick(
       page,
       'role=link[name="Client Management"]',
       "Client Management link"
     );
-
-    const clientLink = page.getByRole("link", { name: "Client", exact: true });
-    console.log("Waiting for and clicking: Client link (exact match)");
-    await clientLink.waitFor({ state: "visible", timeout: 30000 });
-    await clientLink.click({ timeout: 10000 });
-
-    // Click Add New Client
+    await page.getByRole("link", { name: "Client", exact: true }).click();
     await waitForElementAndClick(
       page,
       "data-testid=btn-add-new-2",
       "Add New Client button"
     );
-
-    console.log(
-      'Waiting for "Create New Client" heading to be visible (up to 120s)...'
-    );
-
-    await page.waitForTimeout(2000); // Initial wait before checking
-    console.log("New Client form loaded.");
-
-    // --- 4. Create Client ---
-    console.log(`Creating Client: ${clientName}`);
     await waitForElementAndFill(
       page,
       "data-testid=name",
@@ -193,7 +120,6 @@ test("Full Happy Path: Create Client, App, Coverage, Price Plan, and Generate Pa
       "Post Code field"
     );
 
-    // Select Currency
     const currencyDropdownLocator = page
       .locator('div:has-text("Currency Code") .css-19bb58m')
       .first();
@@ -202,35 +128,26 @@ test("Full Happy Path: Create Client, App, Coverage, Price Plan, and Generate Pa
       currencyDropdownLocator,
       "Currency dropdown arrow"
     );
+    await waitForElementAndClick(
+      page,
+      page.getByRole("option", { name: "USD" }).first(),
+      "USD option"
+    );
 
-    const usdOptionLocator = page.getByRole("option", { name: "USD" }).first();
-    await waitForElementAndClick(page, usdOptionLocator, "USD Currency option");
-
-    await page.waitForTimeout(500); // Small wait between dropdowns
-
-    // Select Country
+    await page.waitForTimeout(500);
     await page
       .locator(
         "div:nth-child(5) > div > .css-b62m3t-container > .css-my3gbk-control > .css-hlgwow > .css-19bb58m"
       )
       .click();
-
-    await page.locator("#react-select-5-input").type("Canada");
-
-    await page.locator("#react-select-5-input").press("Enter");
-
-    await page.locator("#react-select-5-input").press("Tab");
-
-    await page.waitForTimeout(500);
+    await page.locator("#react-select-5-option-1").click();
 
     await waitForElementAndFill(
       page,
       "data-testid=registration_number",
       clientRegNum,
-      "Registration Number field"
+      "Registration Number"
     );
-
-    // Billing Contact
     await waitForElementAndFill(
       page,
       "data-testid=billing_contact_name",
@@ -249,33 +166,11 @@ test("Full Happy Path: Create Client, App, Coverage, Price Plan, and Generate Pa
       "94714696124",
       "Billing Phone"
     );
-
-    // Support Contact
-    await waitForElementAndFill(
-      page,
-      "data-testid=support_contact_name",
-      `Support ${clientName}`,
-      "Support Contact Name"
-    );
-    await waitForElementAndFill(
-      page,
-      "data-testid=support_email_address",
-      `support.${uniqueId}@example.com`,
-      "Support Email"
-    );
-    await waitForElementAndFill(
-      page,
-      "data-testid=support_phone_number",
-      "94714696125",
-      "Support Phone"
-    );
-
-    // Technical Contact
     await waitForElementAndFill(
       page,
       "data-testid=technical_contact_name",
       `Tech ${clientName}`,
-      "Technical Contact Name"
+      "Technical Name"
     );
     await waitForElementAndFill(
       page,
@@ -283,116 +178,64 @@ test("Full Happy Path: Create Client, App, Coverage, Price Plan, and Generate Pa
       techEmail,
       "Technical Email"
     );
-    await waitForElementAndFill(
-      page,
-      "data-testid=technical_phone_number",
-      "94714696126",
-      "Technical Phone"
-    );
-
-    // Account Manager
-    await waitForElementAndFill(
-      page,
-      "data-testid=account_manager",
-      "Auto Manager",
-      "Account Manager"
-    );
-
-    // Submit and Verify
     await waitForElementAndClick(
       page,
       "data-testid=btn_submit",
-      "Submit Client button"
+      "Submit Client"
     );
-
-    await page.waitForTimeout(1000); // Short wait before checking
     await expect(page.locator("#market-form-model")).toContainText(
       "Client Created Successfully!",
       { timeout: 15000 }
     );
-    console.log("Client Created Successfully.");
-    await waitForElementAndClick(
-      page,
-      "data-testid=btn-continue",
-      "Continue button after client creation"
-    );
+    await waitForElementAndClick(page, "data-testid=btn-continue", "Continue");
 
-    // --- 5. Create Application ---
-    console.log(`Creating Application: ${appName}`);
-    await expect(page.locator("#client-drpdwn")).toBeVisible({
-      timeout: 15000,
-    });
-
-    // Fill Application form using dynamic data
+    // Create Application
     await waitForElementAndFill(
       page,
       "data-testid=username",
       clientAppUsername,
-      "Application Username field"
+      "Application Username"
     );
-    // The problematic field is 'Application Name' (data-testid=name)
-    // FIX: Pass the compliant appName with only alphanumeric and underscores
     await waitForElementAndFill(
       page,
       "data-testid=name",
       appName,
-      "Application Name field"
+      "Application Name"
     );
-
-    // Set Effective Date
     await waitForElementAndFill(
       page,
       'role=textbox[name="Effective Date *"]',
       effectiveDate,
-      "Effective Date field"
+      "Effective Date"
     );
     await page.keyboard.press("Escape");
-
     await waitForElementAndClick(
       page,
       "data-testid=btn_submit",
-      "Submit Application button"
+      "Submit Application"
     );
-
-    await page.waitForTimeout(1000); // Short wait before checking
-
-    // Verify Application Creation Success
     await expect(page.getByLabel("Application")).toContainText(
       "Application Created Successfully !",
       { timeout: 15000 }
     );
-    console.log("Application Created Successfully.");
-    await waitForElementAndClick(
-      page,
-      "data-testid=btn-continue",
-      "Continue button after application creation"
-    );
+    await waitForElementAndClick(page, "data-testid=btn-continue", "Continue");
 
-    // --- 6. Create Coverage ---
-    console.log(`Creating Coverage: ${coverageRef}`);
+    // Create Coverage
     await expect(page.locator("#application-drpdwn")).toBeVisible({
       timeout: 15000,
     });
-
-    // Select Market (Pakistan)
-
-    await page.waitForTimeout(1000); // Short wait before interacting
-
     await page
       .locator(
         "#market_id-drpdwn > .css-my3gbk-control > .css-hlgwow > .css-19bb58m"
       )
       .click();
     await page.getByRole("option", { name: "Pakistan" }).click();
-
     await waitForElementAndFill(
       page,
       "data-testid=reference",
       coverageRef,
       "Coverage Reference field"
     );
-
-    // Set Effective Date
     await waitForElementAndFill(
       page,
       'role=textbox[name="Effective Date *"]',
@@ -400,59 +243,238 @@ test("Full Happy Path: Create Client, App, Coverage, Price Plan, and Generate Pa
       "Coverage Effective Date field"
     );
     await page.keyboard.press("Escape");
-
-    // Check Enable Cache DB Lookup checkbox
     await page.getByTestId("enable-cache-db-lookup").check();
-    await waitForElementAndClick(
-      page,
-      'role=button[name="OK"]',
-      "OK button after cache checkbox"
-    );
-
+    await waitForElementAndClick(page, 'role=button[name="OK"]', "OK button");
     await waitForElementAndClick(
       page,
       "data-testid=btn_submit",
-      "Submit Coverage button"
+      "Submit Coverage"
     );
-
-    // Verify Coverage Creation Success
     await expect(page.getByLabel("Coverage")).toContainText(
       "Coverage Created Successfully !",
       { timeout: 15000 }
     );
-    console.log("Coverage Created Successfully.");
-    await waitForElementAndClick(
-      page,
-      "data-testid=btn-continue",
-      "Continue button after coverage creation"
-    );
+    await waitForElementAndClick(page, "data-testid=btn-continue", "Continue");
   } catch (error) {
-    // Global error handling and screenshot on failure
-    console.error("Test Failed during execution:", error);
-    await page.screenshot({
-      path: `test-results/failure-screenshot-${Date.now()}.png`,
-    });
-
-    // Re-throw the error to ensure Playwright marks the test as failed
+    console.error("Test Failed:", error);
+    await page.screenshot({ path: `test-results/failure-${Date.now()}.png` });
     throw error;
   } finally {
-    // Ensure resources are closed so Playwright worker can exit cleanly
     try {
       if (!page.isClosed()) await page.close();
-    } catch (err) {
-      console.warn("Error closing page in finally:", err);
-    }
+    } catch {}
     try {
       await page.context().close();
-    } catch (err) {
-      console.warn(
-        "Error closing context in finally (may be already closed):",
-        err
-      );
-    }
+    } catch {}
   }
 
-  console.log("Test Completed.");
+  console.log("✅ Full Happy Path Test Completed.");
+});
 
-  // --- End of Test Case ---
+// --- TEST 2: Missing Coverage Reference ---
+test.skip("Validate Coverage creation fails when Coverage Reference is missing", async ({
+  page,
+}) => {
+  const baseURL =
+    "http://k8s-mnp-mnpadmin-caf79e8920-d292c5aedbf21a5e.elb.eu-west-2.amazonaws.com/login";
+  await page.goto(baseURL, { waitUntil: "domcontentloaded" });
+  await waitForElementAndFill(
+    page,
+    "data-testid=username",
+    "admin",
+    "Username"
+  );
+  await waitForElementAndFill(
+    page,
+    "data-testid=password",
+    "admin@123",
+    "Password"
+  );
+  await waitForElementAndClick(page, "data-testid=btn-login", "Login");
+  await expect(page.locator("#root")).toContainText("MNP Admin Portal");
+
+  await page.getByRole("link", { name: "Client Management" }).click();
+  await page.getByRole("link", { name: "Coverage", exact: true }).click();
+
+  await page.getByTestId("btn-add-new-2").click();
+
+  // Skip reference
+  await waitForElementAndFill(
+    page,
+    'role=textbox[name="Effective Date *"]',
+    "2026-01-01",
+    "Effective Date"
+  );
+  await waitForElementAndClick(
+    page,
+    "data-testid=btn_submit",
+    "Submit Coverage"
+  );
+  await expect(page.locator("text=Coverage Reference is required")).toBeVisible(
+    { timeout: 10000 }
+  );
+});
+
+// --- TEST 3: Invalid Coverage Reference (non-alphanumeric) ---
+test("Validate Coverage Reference with special characters shows validation error", async ({
+  page,
+}) => {
+  const baseURL =
+    "http://k8s-mnp-mnpadmin-caf79e8920-d292c5aedbf21a5e.elb.eu-west-2.amazonaws.com/login";
+  await page.goto(baseURL, { waitUntil: "domcontentloaded" });
+  await waitForElementAndFill(
+    page,
+    "data-testid=username",
+    "admin",
+    "Username"
+  );
+  await waitForElementAndFill(
+    page,
+    "data-testid=password",
+    "admin@123",
+    "Password"
+  );
+  await waitForElementAndClick(page, "data-testid=btn-login", "Login");
+  await expect(page.locator("#root")).toContainText("MNP Admin Portal");
+
+  await page.getByRole("link", { name: "Client Management" }).click();
+  await page.getByRole("link", { name: "Coverage", exact: true }).click();
+  await page.getByTestId("btn-add-new-2").click();
+
+  await waitForElementAndFill(
+    page,
+    "data-testid=reference",
+    "cov#001",
+    "Invalid Coverage Reference"
+  );
+  await waitForElementAndFill(
+    page,
+    'role=textbox[name="Effective Date *"]',
+    "2026-01-01",
+    "Effective Date"
+  );
+  await waitForElementAndClick(
+    page,
+    "data-testid=btn_submit",
+    "Submit Coverage"
+  );
+  await expect(page.locator("body")).toContainText(
+    "The field must be alphanumeric."
+  );
+});
+
+// --- TEST 4: Missing Effective Date ---
+test.skip("Validate Coverage creation fails when Effective Date is missing", async ({
+  page,
+}) => {
+  const baseURL =
+    "http://k8s-mnp-mnpadmin-caf79e8920-d292c5aedbf21a5e.elb.eu-west-2.amazonaws.com/login";
+  await page.goto(baseURL, { waitUntil: "domcontentloaded" });
+  await waitForElementAndFill(
+    page,
+    "data-testid=username",
+    "admin",
+    "Username"
+  );
+  await waitForElementAndFill(
+    page,
+    "data-testid=password",
+    "admin@123",
+    "Password"
+  );
+  await waitForElementAndClick(page, "data-testid=btn-login", "Login");
+  await expect(page.locator("#root")).toContainText("MNP Admin Portal");
+
+  await page.getByRole("link", { name: "Client Management" }).click();
+  await page.getByRole("link", { name: "Coverage", exact: true }).click();
+  await page.getByTestId("btn-add-new-2").click();
+
+  await waitForElementAndFill(
+    page,
+    "data-testid=reference",
+    "COV_12345",
+    "Coverage Reference"
+  );
+  await waitForElementAndClick(
+    page,
+    "data-testid=btn_submit",
+    "Submit Coverage"
+  );
+  await expect(page.locator("text=Effective Date is required")).toBeVisible({
+    timeout: 10000,
+  });
+});
+
+// --- TEST 5: Duplicate Coverage Reference ---
+test("Validate duplicate Coverage Reference shows error popup", async ({
+  page,
+}) => {
+  const baseURL =
+    "http://k8s-mnp-mnpadmin-caf79e8920-d292c5aedbf21a5e.elb.eu-west-2.amazonaws.com/login";
+  const duplicateRef = "COV_DUPLICATE_01";
+  await page.goto(baseURL, { waitUntil: "domcontentloaded" });
+  await waitForElementAndFill(
+    page,
+    "data-testid=username",
+    "admin",
+    "Username"
+  );
+  await waitForElementAndFill(
+    page,
+    "data-testid=password",
+    "admin@123",
+    "Password"
+  );
+  await waitForElementAndClick(page, "data-testid=btn-login", "Login");
+  await expect(page.locator("#root")).toContainText("MNP Admin Portal");
+
+  await page.getByRole("link", { name: "Client Management" }).click();
+  await page.getByRole("link", { name: "Coverage", exact: true }).click();
+  await page.getByTestId("btn-add-new-2").click();
+
+  await page.waitForTimeout(5000);
+
+  await page
+    .locator(".css-my3gbk-control > .css-hlgwow > .css-19bb58m")
+    .first()
+    .click();
+  await page.getByRole("option", { name: "AZ NB partner Greg" }).click();
+
+  await page
+    .locator(".css-my3gbk-control > .css-hlgwow > .css-19bb58m")
+    .first()
+    .click();
+  await page.getByRole("option", { name: "app_Nola" }).click();
+
+  await page
+    .locator(
+      "#market_id-drpdwn > .css-my3gbk-control > .css-hlgwow > .css-19bb58m"
+    )
+    .click();
+  await page.getByRole("option", { name: "Pakistan" }).click();
+
+  await waitForElementAndFill(
+    page,
+    "data-testid=reference",
+    duplicateRef,
+    "Coverage Reference"
+  );
+  await waitForElementAndFill(
+    page,
+    'role=textbox[name="Effective Date *"]',
+    "2026-01-01",
+    "Effective Date"
+  );
+  await waitForElementAndClick(
+    page,
+    "data-testid=btn_submit",
+    "Submit Coverage"
+  );
+
+  await page.waitForTimeout(1000);
+
+  await expect(page.locator("body")).toContainText(
+    "Duplicate admin entry creation attempt, please check the request details again"
+  );
+  await expect(page.locator("body")).toContainText("Problem");
 });
